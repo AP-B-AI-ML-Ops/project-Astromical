@@ -1,0 +1,13 @@
+[tool.black]
+line-length = 88
+
+[tool.isort]
+# zorgt ervoor dat isort hetzelfde styling heeft als black
+profile = "black"
+
+[tool.pylint.messages_control]
+# dit maakt de docstring niet verplicht
+disable = [
+    "missing-function-docstring",
+    "missing-class-docstring",
+]

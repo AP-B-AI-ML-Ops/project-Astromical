@@ -1,0 +1,50 @@
+# de gekozen versies zijn de nieuwste versies van 15 april 2026
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # verwijdert overbodige spaties
+      - id: trailing-whitespace
+      # zorgt voor newline op het einde van file
+      - id: end-of-file-fixer
+      # controleert YAML-bestanden
+      - id: check-yaml
+      # blokkeert grote bestanden bij commits
+      - id: check-added-large-files
+      
+  - repo: https://github.com/psf/black
+    rev: 26.3.1
+    hooks:
+      # code formatter
+      - id: black
+        language_version: python3.11
+
+  - repo: https://github.com/PyCQA/pylint
+    rev: v3.3.6
+    hooks:
+      # code style checker
+      - id: pylint
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 8.0.1
+    hooks:
+      # sorteert imports alfabetisch
+      - id: isort
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      # detecteert wachtwoorden & API keys in code
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      # dit voert tests uit bij elke commit
+      - id: pytest-check
+        name: pytest-check
+        entry: pytest
+        # dit zorgt ervoor dat de python van mijn systeem gebruikt wordt
+        language: system
+        # dit zorgt ervoor dat er geen test overgeslagen wordt
+        pass_filenames: false
+        args: ["/tests"]
