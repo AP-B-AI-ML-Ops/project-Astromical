@@ -11,7 +11,7 @@ repos:
       - id: check-yaml
       # blokkeert grote bestanden bij commits
       - id: check-added-large-files
-      
+
   - repo: https://github.com/psf/black
     rev: 26.3.1
     hooks:
@@ -36,15 +36,15 @@ repos:
     hooks:
       # detecteert wachtwoorden & API keys in code
       - id: gitleaks
-
-  - repo: local
-    hooks:
-      # dit voert tests uit bij elke commit
-      - id: pytest-check
-        name: pytest-check
-        entry: pytest
-        # dit zorgt ervoor dat de python van mijn systeem gebruikt wordt
-        language: system
-        # dit zorgt ervoor dat er geen test overgeslagen wordt
-        pass_filenames: false
-        args: ["/tests"]
+  # Er zijn nog geen testen
+  # - repo: local
+  #   hooks:
+  #     # dit voert tests uit bij elke commit
+  #     - id: pytest-check
+  #       name: pytest-check
+  #       entry: pytest
+  #       # dit zorgt ervoor dat de python van mijn systeem gebruikt wordt
+  #       language: system
+  #       # dit zorgt ervoor dat er geen test overgeslagen wordt
+  #       pass_filenames: false
+  #       args: ["tests"]

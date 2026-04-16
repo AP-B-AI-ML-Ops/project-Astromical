@@ -1,0 +1,13 @@
+mlflow
+prefect
+evidently
+fastapi
+uvicorn
+pandas
+numpy
+scikit-learn
+pytest
+pre-commit
+black
+isort
+pylint
