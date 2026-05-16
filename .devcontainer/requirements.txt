@@ -6,6 +6,7 @@ uvicorn
 pandas
 numpy
 scikit-learn
+pyarrow
 pytest
 pre-commit
 black

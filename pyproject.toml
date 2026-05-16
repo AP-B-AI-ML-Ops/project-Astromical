@@ -10,4 +10,14 @@ profile = "black"
 disable = [
     "missing-function-docstring",
     "missing-class-docstring",
+    "import-error"
 ]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pytest.ini_options]
+# Voegt de projectroot toe aan het Python pad zodat lokale modules importeerbaar zijn
+pythonpath = ["."]
+# Geeft aan waar pytest de testbestanden moet zoeken
+testpaths = ["tests"]
