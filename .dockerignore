@@ -1,0 +1,9 @@
+.devcontainer
+.git
+.pytest_cache
+.vscode
+__pycache__
+tests
+*.md
+*.toml
+*.yaml

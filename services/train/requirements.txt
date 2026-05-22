@@ -1,0 +1,7 @@
+mlflow
+pandas
+numpy
+scikit-learn
+pyarrow
+optuna
+psycopg2-binary
