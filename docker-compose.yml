@@ -36,7 +36,7 @@ services:
       retries: 10
       start_period: 10s
 
-  # Web service: REST API voor on-demand voorspellingen bereikbaar op http://localhost:9696
+  # Web service: REST API voor voorspellingen bereikbaar op http://localhost:9696
   web-service:
     build:
       context: .
@@ -48,6 +48,23 @@ services:
         condition: service_started
     environment:
       - MLFLOW_TRACKING_URI=http://experiment-tracking:5000
+    restart: unless-stopped
+
+  # Batch service ook beschikbaar op http://localhost:4200
+  batch-service:
+    build:
+      context: .
+      dockerfile: ./services/batch-service/Dockerfile
+    depends_on:
+      experiment-tracking:
+        condition: service_started
+      orchestration:
+        condition: service_healthy
+    environment:
+      - MLFLOW_TRACKING_URI=http://experiment-tracking:5000
+      - PREFECT_API_URL=http://orchestration:4200/api
+    volumes:
+      - batch-data:/batch-data
     restart: unless-stopped
 
   # Training pipeline
@@ -66,3 +83,4 @@ services:
 
 volumes:
   postgres-data:
+  batch-data:

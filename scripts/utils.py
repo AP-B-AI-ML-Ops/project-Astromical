@@ -1,6 +1,7 @@
 """Gedeelde hulpfuncties voor de training scripts."""
 
 import mlflow
+import requests
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import root_mean_squared_error
 
@@ -29,3 +30,16 @@ def fit_and_log(params, x_train, y_train, x_val, y_val):
     rmse_mean = log_rmse_metrics(y_val, y_pred)
 
     return rf, rmse_mean
+
+
+def haal_records_op(dataset_id, start, einde, extra_filter=""):
+    """Haal alle records op voor een dataset"""
+    url = f"https://opendata.elia.be/api/explore/v2.1/catalog/datasets/{dataset_id}/records"
+    params = {
+        "where": f'datetime >= "{start}" AND datetime <= "{einde}"{extra_filter}',
+        "limit": 100,
+        "order_by": "datetime ASC",
+    }
+    resp = requests.get(url, params=params, timeout=30)
+    resp.raise_for_status()
+    return resp.json().get("results", [])

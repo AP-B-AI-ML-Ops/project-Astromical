@@ -1,0 +1,8 @@
+mlflow
+prefect
+pandas
+numpy
+scikit-learn
+pyarrow
+requests
+psycopg2-binary
