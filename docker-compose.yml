@@ -23,6 +23,19 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Prefect orchestration server bereikbaar op http://localhost:4200
+  orchestration:
+    build: ./services/orchestration
+    ports:
+      - "4200:4200"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   # Training pipeline
   train:
     build:
@@ -31,8 +44,11 @@ services:
     depends_on:
       experiment-tracking:
         condition: service_started
+      orchestration:
+        condition: service_healthy
     environment:
       - MLFLOW_TRACKING_URI=http://experiment-tracking:5000
+      - PREFECT_API_URL=http://orchestration:4200/api
 
 volumes:
   postgres-data:
