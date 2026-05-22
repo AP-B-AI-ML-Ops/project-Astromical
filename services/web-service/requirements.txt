@@ -1,0 +1,5 @@
+mlflow
+flask
+numpy
+requests
+psycopg2-binary

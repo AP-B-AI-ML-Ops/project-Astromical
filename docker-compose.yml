@@ -36,6 +36,20 @@ services:
       retries: 10
       start_period: 10s
 
+  # Web service: REST API voor on-demand voorspellingen bereikbaar op http://localhost:9696
+  web-service:
+    build:
+      context: .
+      dockerfile: ./services/web-service/Dockerfile
+    ports:
+      - "9696:9696"
+    depends_on:
+      experiment-tracking:
+        condition: service_started
+    environment:
+      - MLFLOW_TRACKING_URI=http://experiment-tracking:5000
+    restart: unless-stopped
+
   # Training pipeline
   train:
     build:
