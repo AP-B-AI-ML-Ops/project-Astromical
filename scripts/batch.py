@@ -273,7 +273,6 @@ def batch_pipeline():
 
 
 if __name__ == "__main__":
-    batch_pipeline()
     batch_pipeline.serve(
         name="dagelijkse-batch",
         cron="0 6 * * *",
