@@ -7,5 +7,7 @@ RUN pip install -U pip && pip install psycopg2-binary mlflow uvicorn
 CMD ["mlflow", "server", \
      "--host", "0.0.0.0", \
      "--port", "5000", \
-     "--backend-store-uri", "postgresql+psycopg2://postgres:postgres@database/mlflow_db", \
+     "--backend-store-uri", "postgresql+psycopg2://postgres:postgres@database/postgres", \
+     "--serve-artifacts", \
+     "--artifacts-destination", "/mlruns", \
      "--allowed-hosts", "*"]

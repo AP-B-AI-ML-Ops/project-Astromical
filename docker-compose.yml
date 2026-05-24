@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./services/database/.env
+    ports:
+      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -21,6 +23,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+    volumes:
+      - mlruns-data:/mlruns
     restart: unless-stopped
 
   # Prefect orchestration server bereikbaar op http://localhost:4200
@@ -60,9 +64,38 @@ services:
         condition: service_started
       orchestration:
         condition: service_healthy
+      database:
+        condition: service_healthy
+      train:
+        condition: service_healthy
     environment:
       - MLFLOW_TRACKING_URI=http://experiment-tracking:5000
       - PREFECT_API_URL=http://orchestration:4200/api
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/postgres
+    volumes:
+      - batch-data:/batch-data
+    restart: unless-stopped
+
+  # Grafana dashboard bereikbaar op http://localhost:3000
+  grafana:
+    image: grafana/grafana:11.5.2
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./services/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./services/grafana/dashboards:/opt/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+  # Evidently UI bereikbaar op http://localhost:8000
+  evidently-ui:
+    image: python:3.11-slim
+    command: bash -c "pip install evidently -q && evidently ui --workspace /batch-data/evidently --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
     volumes:
       - batch-data:/batch-data
     restart: unless-stopped
@@ -80,7 +113,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=http://experiment-tracking:5000
       - PREFECT_API_URL=http://orchestration:4200/api
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, json; data = json.loads(urllib.request.urlopen('http://experiment-tracking:5000/api/2.0/mlflow/registered-models/search').read()); exit(0 if data.get('registered_models') else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
 
 volumes:
   postgres-data:
   batch-data:
+  grafana-data:
+  mlruns-data:
+  pgadmin-data:

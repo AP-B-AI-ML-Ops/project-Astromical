@@ -8,6 +8,12 @@ from prefect import flow, task
 from sklearn.metrics import root_mean_squared_error
 
 from scripts.models.load import load_model
+from scripts.monitoring import controleer_hertraining as check_rmse
+from scripts.monitoring import (
+    genereer_evidently_rapport,
+    sla_metrics_op,
+    sla_vergelijking_op,
+)
 from scripts.utils import haal_records_op
 
 # Coördinaten Antwerpen
@@ -27,7 +33,9 @@ FEATURES = [
 TARGETS = ["solar_mw", "wind_mw"]
 
 
-@task(name="laad-ecmwf-voorspelling", log_prints=True)
+@task(
+    name="laad-ecmwf-voorspelling", log_prints=True, retries=3, retry_delay_seconds=30
+)
 def laad_ecmwf_voorspelling():
     """Haalt de volgende 24 uur weersdata op via de Open-Meteo ECMWF forecast API."""
     url = "https://api.open-meteo.com/v1/forecast"
@@ -65,18 +73,18 @@ def laad_ecmwf_voorspelling():
     return df
 
 
-@task(name="laad-ecmwf-gisteren", log_prints=True)
+@task(name="laad-ecmwf-gisteren", log_prints=True, retries=3, retry_delay_seconds=30)
 def laad_ecmwf_gisteren():
-    """Haalt de weersdata van gisteren op via de Open-Meteo Archive API."""
+    """Haalt de weersdata van gisteren op via de Open-Meteo forecast API met past_days=1."""
     gisteren = (pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=1)).date()
 
-    url = "https://archive-api.open-meteo.com/v1/archive"
+    url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": LAT,
         "longitude": LON,
-        "start_date": str(gisteren),
-        "end_date": str(gisteren),
         "hourly": "wind_speed_10m,shortwave_radiation",
+        "past_days": 1,
+        "forecast_days": 1,
         "timezone": "UTC",
         "wind_speed_unit": "kmh",
     }
@@ -94,6 +102,9 @@ def laad_ecmwf_gisteren():
     )
     df.index.name = "tijd"
 
+    # Filter enkel gisteren
+    df = df[df.index.date == gisteren]
+
     df["hour"] = df.index.hour
     df["month"] = df.index.month
     df["dayofweek"] = df.index.dayofweek
@@ -103,7 +114,7 @@ def laad_ecmwf_gisteren():
     return df
 
 
-@task(name="laad-elia-actuals", log_prints=True)
+@task(name="laad-elia-actuals", log_prints=True, retries=3, retry_delay_seconds=30)
 def laad_elia_actuals():
     """Haalt de werkelijke productiedata van gisteren op via de Elia Open Data API."""
     gisteren = (pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=1)).date()
@@ -166,7 +177,7 @@ def laad_elia_actuals():
 
 @task(name="run-predictie", log_prints=True)
 def run_predictie(model, df_forecast):
-    """Voer model-predictie uit op de weersdata."""
+    """Voert model predictie uit op de weersdata."""
     x = df_forecast[FEATURES].values
     predictions = model.predict(x)
 
@@ -191,7 +202,7 @@ def sla_voorspellingen_op(df_result):
 
 @task(name="vergelijk-met-actuals", log_prints=True)
 def vergelijk_met_actuals(df_pred, df_actuals):
-    """Vergelijk de voorspellingen met de werkelijke Elia-productiedata en bereken RMSE."""
+    """Vergelijkt de voorspellingen met de werkelijke Elia-productiedata en berekent RMSE."""
     overlap = df_pred.index.intersection(df_actuals.index)
 
     if len(overlap) == 0:
@@ -220,6 +231,26 @@ def vergelijk_met_actuals(df_pred, df_actuals):
     return metrics
 
 
+@task(name="rapporteer-monitoring", log_prints=True)
+def rapporteer_monitoring(metrics, df_pred, df_actuals):
+    """Slaagt metrics op in PostgreSQL en genereert een Evidently rapport."""
+    if not metrics:
+        print("Geen metrics beschikbaar dus monitoring overgeslagen.")
+        return
+    run_date = (pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=1)).date()
+    sla_metrics_op(metrics, run_date)
+    sla_vergelijking_op(df_pred, df_actuals, run_date)
+    genereer_evidently_rapport(df_pred, df_actuals, run_date)
+
+
+@task(name="controleer-hertraining", log_prints=True)
+def controleer_hertraining(metrics):
+    """Triggert hertraining als RMSE de drempelwaarde overschrijdt."""
+    if not metrics:
+        return
+    check_rmse(metrics)
+
+
 @flow(name="batch-pipeline", log_prints=True)
 def batch_pipeline():
     """Dagelijkse batch pipeline."""
@@ -230,14 +261,19 @@ def batch_pipeline():
     df_pred_toekomst = run_predictie(model, df_forecast)
     sla_voorspellingen_op(df_pred_toekomst)
 
-    # Vergelijken op gisteren (Open-Meteo data vs Elia actuals)
+    # Evaluatie op gisteren (Open-Meteo archive vs Elia actuals)
     df_gisteren = laad_ecmwf_gisteren()
     df_pred_gisteren = run_predictie(model, df_gisteren)
     df_actuals = laad_elia_actuals()
-    vergelijk_met_actuals(df_pred_gisteren, df_actuals)
+    metrics = vergelijk_met_actuals(df_pred_gisteren, df_actuals)
+
+    # Monitoring + hertraining check
+    rapporteer_monitoring(metrics, df_pred_gisteren, df_actuals)
+    controleer_hertraining(metrics)
 
 
 if __name__ == "__main__":
+    batch_pipeline()
     batch_pipeline.serve(
         name="dagelijkse-batch",
         cron="0 6 * * *",

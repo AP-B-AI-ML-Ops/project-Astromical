@@ -10,7 +10,8 @@ profile = "black"
 disable = [
     "missing-function-docstring",
     "missing-class-docstring",
-    "import-error"
+    "import-error",
+    "no-name-in-module"
 ]
 
 [tool.pylint.format]

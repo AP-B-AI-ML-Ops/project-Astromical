@@ -1,0 +1,193 @@
+{
+  "title": "Energy Forecast Monitoring",
+  "uid": "energy-monitoring",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "5m",
+  "timezone": "utc",
+  "time": { "from": "now-90d", "to": "now" },
+  "tags": ["energy", "monitoring"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "RMSE over tijd (MW)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT run_date::timestamptz AS time, rmse_solar_mw AS \"RMSE Solar (MW)\", rmse_wind_mw AS \"RMSE Wind (MW)\", rmse AS \"RMSE Gemiddeld (MW)\" FROM monitoring_metrics WHERE run_date >= $__timeFrom()::date AND run_date <= $__timeTo()::date ORDER BY run_date"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Solar: Voorspeld vs Werkelijk (MW)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 5 },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Werkelijk Solar (MW)" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Voorspeld Solar (MW)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT tijd AS time, solar_mw_pred AS \"Voorspeld Solar (MW)\", solar_mw_actual AS \"Werkelijk Solar (MW)\" FROM predictions WHERE $__timeFilter(tijd) ORDER BY tijd"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Wind: Voorspeld vs Werkelijk (MW)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 5 },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Werkelijk Wind (MW)" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Voorspeld Wind (MW)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT tijd AS time, wind_mw_pred AS \"Voorspeld Wind (MW)\", wind_mw_actual AS \"Werkelijk Wind (MW)\" FROM predictions WHERE $__timeFilter(tijd) ORDER BY tijd"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Laatste RMSE Gemiddeld (MW)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 18 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(rmse, 0) AS \"RMSE Gemiddeld (MW)\" FROM monitoring_metrics ORDER BY run_date DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Laatste RMSE Solar (MW)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 18 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(rmse_solar_mw, 0) AS \"RMSE Solar (MW)\" FROM monitoring_metrics ORDER BY run_date DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Laatste RMSE Wind (MW)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 18 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-postgresql-datasource", "uid": "energy-postgres" },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(rmse_wind_mw, 0) AS \"RMSE Wind (MW)\" FROM monitoring_metrics ORDER BY run_date DESC LIMIT 1"
+        }
+      ]
+    }
+  ]
+}

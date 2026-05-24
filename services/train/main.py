@@ -46,4 +46,7 @@ def training_pipeline(parquet_path=PARQUET_PATH, num_trials=10, top_n=5):
 
 
 if __name__ == "__main__":
+    # Voer de training pipeline eenmalig uit bij opstart
     training_pipeline()
+    # Deze zorgt dat het actief blijft als Prefect deployment zodat hertraining getriggerd kan worden
+    training_pipeline.serve(name="training-pipeline")
