@@ -2,11 +2,11 @@
 
 import pandas as pd
 
-from scripts.train import FEATURES, TARGETS, TRAIN_RATIO, make_splits
+from scripts.train import FEATURES, TARGETS, TRAIN_RATIO, VAL_RATIO, make_splits
 
 
 def create_dataframe():
-    # 10 rijen zodat de 80/20-split minstens 1 rij in elke set geeft
+    # 10 rijen zodat de 70/10/20-split minstens 1 rij in elke set geeft
     idx = pd.date_range("2022-01-01 00:00:00", periods=10, freq="h", tz="UTC")
     return pd.DataFrame(
         {
@@ -47,33 +47,44 @@ def create_dataframe():
 
 def test_make_splits_array_vormen():
     df = create_dataframe()
-    x_train, y_train, x_val, y_val = make_splits(df)
+    x_train, y_train, x_val, y_val, x_test, y_test = make_splits(df)
     # x heeft 6 features, y heeft 2 doelvariabelen (solar_mw en wind_mw)
     assert x_train.shape[1] == len(FEATURES)
     assert y_train.shape[1] == len(TARGETS)
     assert x_val.shape[1] == len(FEATURES)
     assert y_val.shape[1] == len(TARGETS)
+    assert x_test.shape[1] == len(FEATURES)
+    assert y_test.shape[1] == len(TARGETS)
 
 
 def test_make_splits_grootte():
     df = create_dataframe()
-    x_train, _, x_val, _ = make_splits(df)
-    # 80% train, 20% val van 10 rijen = 8 + 2
-    assert len(x_train) == 8
-    assert len(x_val) == 2
+    x_train, _, x_val, _, x_test, _ = make_splits(df)
+    # 70% train, 10% val, 20% test van 10 rijen = 7 + 1 + 2
+    assert len(x_train) == 7
+    assert len(x_val) == 1
+    assert len(x_test) == 2
 
 
 def test_make_splits_geen_overlap():
-    # Train en validatie mogen nooit dezelfde tijdstempels delen
+    # Train, validatie en test mogen nooit dezelfde tijdstempels delen
     df = create_dataframe()
-    split_idx = int(len(df) * TRAIN_RATIO)
-    train_idx = set(df.iloc[:split_idx].index)
-    val_idx = set(df.iloc[split_idx:].index)
+    n = len(df)
+    train_end = int(n * TRAIN_RATIO)
+    val_end = train_end + round(n * VAL_RATIO)
+    train_idx = set(df.iloc[:train_end].index)
+    val_idx = set(df.iloc[train_end:val_end].index)
+    test_idx = set(df.iloc[val_end:].index)
     assert train_idx.isdisjoint(val_idx)
+    assert train_idx.isdisjoint(test_idx)
+    assert val_idx.isdisjoint(test_idx)
 
 
 def test_make_splits_val_na_train():
-    # Validatiedata moet chronologisch na de traindata vallen
+    # Validatie- en testdata moeten chronologisch na de traindata vallen
     df = create_dataframe()
-    split_idx = int(len(df) * TRAIN_RATIO)
-    assert df.iloc[:split_idx].index.max() < df.iloc[split_idx:].index.min()
+    n = len(df)
+    train_end = int(n * TRAIN_RATIO)
+    val_end = train_end + round(n * VAL_RATIO)
+    assert df.iloc[:train_end].index.max() < df.iloc[train_end:val_end].index.min()
+    assert df.iloc[train_end:val_end].index.max() < df.iloc[val_end:].index.min()

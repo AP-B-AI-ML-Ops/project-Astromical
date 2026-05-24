@@ -1,12 +1,12 @@
 """Monitoring module: sla metrics op in PostgreSQL en genereer Evidently rapporten."""
 
-import datetime
 import os
 
 import pandas as pd
 import sqlalchemy
-from evidently import DataDefinition, Dataset, Regression, Report
-from evidently.presets import DataSummaryPreset
+from evidently import ColumnMapping
+from evidently.metric_preset import RegressionPreset
+from evidently.report import Report
 from evidently.ui.workspace import Workspace
 from prefect.deployments import run_deployment
 
@@ -80,21 +80,16 @@ def genereer_evidently_rapport(df_pred, df_actuals, run_date):
         }
     )
 
-    definition = DataDefinition(
-        numerical_columns=[
-            "solar_mw",
-            "solar_mw_pred",
-            "wind_mw",
-            "wind_mw_pred",
-        ],
-        regression=[Regression(target="solar_mw", prediction="solar_mw_pred")],
+    column_mapping = ColumnMapping(
+        target="solar_mw",
+        prediction="solar_mw_pred",
     )
 
-    report = Report([DataSummaryPreset()])
-    run = report.run(
-        Dataset.from_pandas(df_combined, data_definition=definition),
-        None,
-        timestamp=datetime.datetime.combine(run_date, datetime.time()),
+    report = Report(metrics=[RegressionPreset()])
+    report.run(
+        reference_data=None,
+        current_data=df_combined,
+        column_mapping=column_mapping,
     )
 
     ws = Workspace.create(WORKSPACE_PATH)
@@ -106,7 +101,7 @@ def genereer_evidently_rapport(df_pred, df_actuals, run_date):
         project.description = "Dagelijkse monitoring van solar en wind voorspellingen"
         project.save()
 
-    ws.add_run(project.id, run)
+    ws.add_report(project.id, report)
     print(f"Evidently rapport opgeslagen voor {run_date}")
 
 

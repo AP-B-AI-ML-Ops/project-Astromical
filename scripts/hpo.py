@@ -22,7 +22,7 @@ def run_optimization(data_path, num_trials=10):
     # Dit zet autolog uit zodat ik zelf params en metrics log per trial
     mlflow.sklearn.autolog(disable=True)
 
-    x_train, y_train, x_val, y_val = load_splits(data_path)
+    x_train, y_train, x_val, y_val, *_ = load_splits(data_path)
 
     def objective(trial):
         """Train model met gesuggereerde params en retourneer RMSE."""

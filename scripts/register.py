@@ -7,6 +7,8 @@ import mlflow
 from mlflow.entities import ViewType
 from mlflow.tracking import MlflowClient
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from scripts.train import load_splits
 from scripts.utils import log_rmse_metrics
@@ -29,7 +31,9 @@ RF_PARAMS = [
 DATASETS_DIR = Path(__file__).parent.parent / "datasets" / "exports"
 
 
-def train_and_log_model(params, x_train, y_train, x_val, y_val):
+def train_and_log_model(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    params, x_train, y_train, x_val, y_val, x_test, y_test
+):
     """Hertrainen met gegeven params en model opslaan als MLFlow artifact."""
     mlflow.set_experiment(REGISTER_EXPERIMENT_NAME)
 
@@ -41,22 +45,29 @@ def train_and_log_model(params, x_train, y_train, x_val, y_val):
 
         mlflow.log_params(clean_params)
 
-        rf = RandomForestRegressor(**clean_params)
-        rf.fit(x_train, y_train)
-        y_pred = rf.predict(x_val)
+        pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("model", RandomForestRegressor(**clean_params)),
+            ]
+        )
+        pipeline.fit(x_train, y_train)
 
-        log_rmse_metrics(y_val, y_pred)
+        y_val_pred = pipeline.predict(x_val)
+        log_rmse_metrics(y_val, y_val_pred)
 
-        # Model opslaan als artifact zodat we het later kunnen registreren
-        mlflow.sklearn.log_model(rf, artifact_path="model")
+        y_test_pred = pipeline.predict(x_test)
+        log_rmse_metrics(y_test, y_test_pred, prefix="test_")
+
+        mlflow.sklearn.log_model(pipeline, artifact_path="model")
 
 
-def run_register_model(data_path, top_n=5):
+def run_register_model(data_path, top_n=5):  # pylint: disable=too-many-locals
     """Selecteer de top N HPO-runs, hertrainen, en registreer het beste model."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     client = MlflowClient()
 
-    x_train, y_train, x_val, y_val = load_splits(data_path)
+    x_train, y_train, x_val, y_val, x_test, y_test = load_splits(data_path)
 
     # Haalt de top N runs op uit het HPO-experiment (gesorteerd op laagste RMSE)
     experiment = client.get_experiment_by_name(HPO_EXPERIMENT_NAME)
@@ -76,7 +87,9 @@ def run_register_model(data_path, top_n=5):
 
     # Hertrainen van elk geselecteerd model en opslaan in het register-experiment
     for run in runs:
-        train_and_log_model(run.data.params, x_train, y_train, x_val, y_val)
+        train_and_log_model(
+            run.data.params, x_train, y_train, x_val, y_val, x_test, y_test
+        )
 
     # Hier kiest het de run met de laagste RMSE uit het register-experiment
     register_experiment = client.get_experiment_by_name(REGISTER_EXPERIMENT_NAME)
@@ -94,7 +107,8 @@ def run_register_model(data_path, top_n=5):
 
     print(f"Model geregistreerd: '{MODEL_NAME}' versie {registered.version}")
     print(f"\tRun ID: {run_id}")
-    print(f"\tRMSE: {best_run.data.metrics['rmse']:.4f} MW")
+    print(f"\tRMSE validatie: {best_run.data.metrics['rmse']:.4f} MW")
+    print(f"\tRMSE test: {best_run.data.metrics['test_rmse']:.4f} MW")
 
 
 if __name__ == "__main__":

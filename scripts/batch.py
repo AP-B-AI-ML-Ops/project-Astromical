@@ -1,10 +1,13 @@
 """Batch pipeline"""
 
+import threading
+import time
 from pathlib import Path
 
 import pandas as pd
 import requests
 from prefect import flow, task
+from prefect.deployments import run_deployment
 from sklearn.metrics import root_mean_squared_error
 
 from scripts.models.load import load_model
@@ -14,6 +17,7 @@ from scripts.monitoring import (
     sla_metrics_op,
     sla_vergelijking_op,
 )
+from scripts.train import FEATURES
 from scripts.utils import haal_records_op
 
 # Coördinaten Antwerpen
@@ -21,16 +25,6 @@ LAT = 51.2194
 LON = 4.4025
 
 OUTPUT_DIR = Path("/batch-data/predictions")
-
-FEATURES = [
-    "wind_speed_kmh",
-    "solar_radiation_wm2",
-    "hour",
-    "month",
-    "dayofweek",
-    "is_weekend",
-]
-TARGETS = ["solar_mw", "wind_mw"]
 
 
 @task(
@@ -272,7 +266,19 @@ def batch_pipeline():
     controleer_hertraining(metrics)
 
 
+def trigger_eerste_run():
+    """Triggert een directe Prefect run zodra de deployment geregistreerd is."""
+    time.sleep(10)
+    try:
+        run_deployment("batch-pipeline/dagelijkse-batch", timeout=0)
+        print("Initiële batch run getriggerd via Prefect.")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        print(f"Kon initiële run niet triggeren: {exc}")
+
+
 if __name__ == "__main__":
+    thread = threading.Thread(target=trigger_eerste_run, daemon=True)
+    thread.start()
     batch_pipeline.serve(
         name="dagelijkse-batch",
         cron="0 6 * * *",
