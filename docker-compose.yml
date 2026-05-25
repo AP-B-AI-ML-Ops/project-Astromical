@@ -50,6 +50,8 @@ services:
     depends_on:
       experiment-tracking:
         condition: service_started
+      train:
+        condition: service_healthy
     environment:
       - MLFLOW_TRACKING_URI=http://experiment-tracking:5000
     restart: unless-stopped
@@ -125,4 +127,3 @@ volumes:
   batch-data:
   grafana-data:
   mlruns-data:
-  pgadmin-data:
