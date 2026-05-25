@@ -98,6 +98,18 @@ GET /health
 **Requirements:**
 - Docker
 
+**Data setup:**
+
+Place the following files from the Data Engineering course in the `datasets/` folder before starting:
+
+```
+datasets/
+├── consumptie.csv
+├── productie_combined.csv
+├── sun_combined.csv
+└── v_wind_alles_compleet.csv
+```
+
 **Start:**
 
 ```bash
@@ -114,7 +126,7 @@ The training pipeline runs automatically on first startup. The batch service the
 | MLFlow | http://localhost:5000 | none | experiments, runs, metrics, model registry |
 | Prefect | http://localhost:4200 | none | flow runs, deployments, cron schedule |
 | Grafana | http://localhost:3000 | admin / admin | RMSE over time, predicted vs actual solar and wind charts |
-| Evidently | http://localhost:8000 | none | daily data quality and regression reports |
+| Evidently | http://localhost:8000 | none | daily regression reports per target (solar & wind) as HTML files, generated after each batch run |
 
 **Example API call:**
 
