@@ -13,4 +13,7 @@ COPY scripts/ ./scripts/
 COPY datasets/ ./datasets/
 COPY services/train/main.py .
 
+# PYTHONPATH instellen zodat 'from scripts.x import ...' werkt
+ENV PYTHONPATH=/app
+
 CMD ["python", "main.py"]

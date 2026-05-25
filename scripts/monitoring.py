@@ -1,19 +1,19 @@
 """Monitoring module: sla metrics op in PostgreSQL en genereer Evidently rapporten."""
 
 import os
+from pathlib import Path
 
 import pandas as pd
 import sqlalchemy
 from evidently import ColumnMapping
 from evidently.metric_preset import RegressionPreset
 from evidently.report import Report
-from evidently.ui.workspace import Workspace
 from prefect.deployments import run_deployment
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@database:5432/postgres"
 )
-WORKSPACE_PATH = "/batch-data/evidently"
+REPORTS_DIR = Path("/batch-data/evidently-reports")
 
 # RMSE drempelwaarde in MW. Boven deze waarde wordt hertraining getriggerd
 RMSE_DREMPEL = 50.0
@@ -62,7 +62,7 @@ def sla_metrics_op(metrics, run_date):
 
 
 def genereer_evidently_rapport(df_pred, df_actuals, run_date):
-    """Genereert een Evidently regressie rapport en slaat het op in de workspace."""
+    """Genereert Evidently regressie rapporten als HTML en slaat ze op per doelvariabele."""
     overlap = df_pred.index.intersection(df_actuals.index)
     if len(overlap) == 0:
         print("Geen overlap voor Evidently rapport overgeslagen.")
@@ -80,29 +80,21 @@ def genereer_evidently_rapport(df_pred, df_actuals, run_date):
         }
     )
 
-    column_mapping = ColumnMapping(
-        target="solar_mw",
-        prediction="solar_mw_pred",
-    )
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    report = Report(metrics=[RegressionPreset()])
-    report.run(
-        reference_data=None,
-        current_data=df_combined,
-        column_mapping=column_mapping,
-    )
+    for target, prediction in [
+        ("solar_mw", "solar_mw_pred"),
+        ("wind_mw", "wind_mw_pred"),
+    ]:
+        column_mapping = ColumnMapping(target=target, prediction=prediction)
+        report = Report(metrics=[RegressionPreset()])
+        report.run(
+            reference_data=None, current_data=df_combined, column_mapping=column_mapping
+        )
+        report_path = REPORTS_DIR / f"{run_date}_{target}.html"
+        report.save_html(str(report_path))
 
-    ws = Workspace.create(WORKSPACE_PATH)
-    projects = {p.name: p for p in ws.list_projects()}
-    if "Energy Forecast Monitoring" in projects:
-        project = projects["Energy Forecast Monitoring"]
-    else:
-        project = ws.create_project("Energy Forecast Monitoring")
-        project.description = "Dagelijkse monitoring van solar en wind voorspellingen"
-        project.save()
-
-    ws.add_report(project.id, report)
-    print(f"Evidently rapport opgeslagen voor {run_date}")
+    print(f"Evidently rapporten opgeslagen voor {run_date}")
 
 
 def sla_vergelijking_op(df_pred, df_actuals, run_date):

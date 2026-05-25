@@ -92,10 +92,10 @@ services:
       - ./services/grafana/dashboards:/opt/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
 
-  # Evidently UI bereikbaar op http://localhost:8000
+  # Evidently rapporten bereikbaar op http://localhost:8000
   evidently-ui:
     image: python:3.11-slim
-    command: bash -c "pip install evidently==0.4.36 -q && evidently ui --workspace /batch-data/evidently --host 0.0.0.0 --port 8000"
+    command: bash -c "mkdir -p /batch-data/evidently-reports && cd /batch-data/evidently-reports && python3 -m http.server 8000"
     ports:
       - "8000:8000"
     volumes:
